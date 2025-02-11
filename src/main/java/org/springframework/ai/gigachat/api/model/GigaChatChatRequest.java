@@ -19,11 +19,11 @@ public class GigaChatChatRequest {
     private @JsonProperty("messages") Collection<Message> messages;
     private @JsonProperty("function_call") String functionCall;
     private @JsonProperty("functions") Collection<Function> functions;
-    private @JsonProperty("temperature") Float temperature;
-    private @JsonProperty("top_p") Float topP;
+    private @JsonProperty("temperature") Double temperature;
+    private @JsonProperty("top_p") Double topP;
     private @JsonProperty("stream") Boolean stream;
     private @JsonProperty("max_tokens") Integer maxTokens;
-    private @JsonProperty("repetition_penalty") Float repetitionPenalty;
+    private @JsonProperty("repetition_penalty") Double repetitionPenalty;
     private @JsonProperty("update_interval") Integer updateInterval;
 
     @Data

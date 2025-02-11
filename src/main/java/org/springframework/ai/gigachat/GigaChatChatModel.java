@@ -208,15 +208,14 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
     private ChatOptions buildRequestOptions(GigaChatChatRequest request) {
         return ChatOptions.builder()
                 .model(request.getModel())
-                .frequencyPenalty(Optional.ofNullable(request.getRepetitionPenalty()).map(Float::doubleValue).orElse(null))
+                .frequencyPenalty(request.getRepetitionPenalty())
                 .maxTokens(request.getMaxTokens())
-                .temperature(Optional.ofNullable(request.getTemperature()).map(Float::doubleValue).orElse(null))
-                .topP(Optional.ofNullable(request.getTopP()).map(Float::doubleValue).orElse(null))
+                .temperature(request.getTemperature())
+                .topP(request.getTopP())
                 .build();
     }
 
     private GigaChatChatRequest buildPrompt(Prompt prompt, boolean stream) {
-
         List<GigaChatChatRequest.Message> messages = prompt.getInstructions().stream().map(message -> {
             if (message instanceof UserMessage userMessage) {
                 var messageBuilder = GigaChatChatRequest.Message
@@ -287,12 +286,12 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                 .model(model)
                 .stream(stream)
                 .messages(messages)
-                .repetitionPenalty(mergedOptions.getFrequencyPenaltyF())
-                .topP(mergedOptions.getTopPF())
+                .repetitionPenalty(mergedOptions.getFrequencyPenalty())
+                .topP(mergedOptions.getTopP())
                 .maxTokens(mergedOptions.getMaxTokens())
                 .functionCall(functionsForThisRequest.isEmpty() ? "none" : "auto")
                 .updateInterval(mergedOptions.getUpdateInterval())
-                .temperature(mergedOptions.getTemperatureF());
+                .temperature(mergedOptions.getTemperature());
 
         if (!CollectionUtils.isEmpty(functionsForThisRequest)) {
             requestBuilder.functions(getFunctionTools(functionsForThisRequest));
