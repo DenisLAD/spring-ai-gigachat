@@ -17,6 +17,7 @@ public class GigaChatChatRequest {
 
     private @JsonProperty("model") String model;
     private @JsonProperty("messages") Collection<Message> messages;
+    private @JsonProperty("function_call") String functionCall;
     private @JsonProperty("functions") Collection<Function> functions;
     private @JsonProperty("temperature") Float temperature;
     private @JsonProperty("top_p") Float topP;
@@ -32,8 +33,8 @@ public class GigaChatChatRequest {
         private @JsonProperty("role") GigaChatRole role;
         private @JsonProperty("content") Object content;
         private @JsonProperty("function_state_id") UUID functionStateId;
-        private @JsonProperty("attachments") Collection<String> attachments;
         private @JsonProperty("function_call") Object functionCall;
+        private @JsonProperty("attachments") Collection<String> attachments;
         private @JsonProperty("name") String name;
     }
 

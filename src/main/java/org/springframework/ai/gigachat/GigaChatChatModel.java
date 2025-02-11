@@ -3,7 +3,6 @@ package org.springframework.ai.gigachat;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.Setter;
 import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -37,7 +36,6 @@ import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -112,7 +110,6 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
 
     private ChatResponseMetadata buildAnswer(GigaChatChatResponse response) {
         Assert.notNull(response, "Ответ не может быть пустым");
-        GigaChatChatResponse.Choice choice = response.getChoices().stream().reduce((first, last) -> last).orElseThrow();
         return ChatResponseMetadata.builder()
                 .usage(from(response.getUsage()))
                 .model(response.getModel())
@@ -209,6 +206,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                 .repetitionPenalty(mergedOptions.getFrequencyPenaltyF())
                 .topP(mergedOptions.getTopPF())
                 .maxTokens(mergedOptions.getMaxTokens())
+                .functionCall(functionsForThisRequest.isEmpty() ? "none" : "auto")
                 .updateInterval(mergedOptions.getUpdateInterval())
                 .temperature(mergedOptions.getTemperatureF());
 
