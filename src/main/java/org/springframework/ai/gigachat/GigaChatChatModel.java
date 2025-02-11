@@ -83,7 +83,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                             .map(GigaChatChatResponse.Choice::getMessage)
                             .filter(Objects::nonNull)
                             .filter(item -> Objects.nonNull(item.getFunctionCall()))
-                            .map(msg -> new AssistantMessage.ToolCall(msg.getFunctionStateId().toString(), "function", msg.getFunctionCall().getName(), ModelOptionsUtils.toJsonString(msg.getFunctionCall().getArguments())))
+                            .map(msg -> new AssistantMessage.ToolCall(Optional.of(msg.getFunctionStateId()).map(Objects::toString).orElse(null), "function", msg.getFunctionCall().getName(), ModelOptionsUtils.toJsonString(msg.getFunctionCall().getArguments())))
                             .toList();
 
                     AssistantMessage assistantMessage = new AssistantMessage(gigaChatResponse.getChoices().stream()
