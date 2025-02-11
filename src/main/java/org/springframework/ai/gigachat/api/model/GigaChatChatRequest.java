@@ -63,6 +63,7 @@ public class GigaChatChatRequest {
     public static class FunctionCallRequest {
         private @JsonProperty("name") String name;
         private @JsonProperty("partial_arguments") Map<String, Object> partialArguments;
+        private @JsonProperty("arguments") Map<String, Object> arguments;
     }
 
 }

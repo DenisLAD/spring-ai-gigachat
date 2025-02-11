@@ -232,7 +232,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                 List<GigaChatChatRequest.Message> toolCalls = List.of();
                 if (!CollectionUtils.isEmpty(assistantMessage.getToolCalls())) {
                     toolCalls = assistantMessage.getToolCalls().stream().map(toolCall -> {
-                        var function = new GigaChatChatRequest.FunctionCallRequest(toolCall.name(),
+                        var function = new GigaChatChatRequest.FunctionCallRequest(toolCall.name(), null,
                                 ModelOptionsUtils.jsonToMap(toolCall.arguments()));
                         return GigaChatChatRequest.Message.builder()
                                 .role(GigaChatRole.ASSISTANT)
