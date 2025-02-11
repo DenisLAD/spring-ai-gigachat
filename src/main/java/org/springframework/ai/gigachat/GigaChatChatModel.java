@@ -107,7 +107,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                     return chatResponse;
                 });
 
-        if (!isProxyToolCalls(prompt, this.defaultOptions) && response != null && isToolCall(response, Set.of("stop"))) {
+        if (!isProxyToolCalls(prompt, this.defaultOptions) && response != null && isToolCall(response, Set.of("function_call"))) {
             var toolCallConversation = handleToolCalls(prompt, response);
             return internalCall(new Prompt(toolCallConversation, prompt.getOptions()), response);
         }
@@ -161,7 +161,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
 
                 });
 
-        if (!isProxyToolCalls(prompt, this.defaultOptions) && response != null && isToolCall(response, Set.of("stop"))) {
+        if (!isProxyToolCalls(prompt, this.defaultOptions) && response != null && isToolCall(response, Set.of("function_call"))) {
             var toolCallConversation = handleToolCalls(prompt, response);
             return internalCall(new Prompt(toolCallConversation, prompt.getOptions()), response);
         }
@@ -237,7 +237,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                         return GigaChatChatRequest.Message.builder()
                                 .role(GigaChatRole.ASSISTANT)
                                 .content(assistantMessage.getContent())
-                                .functionStateId(UUID.fromString(toolCall.id()))
+                                .functionStateId(Optional.ofNullable(toolCall.id()).map(UUID::fromString).orElse(null))
                                 .functionCall(function)
                                 .build();
                     }).toList();
