@@ -28,6 +28,6 @@ and add dependency
 <dependency>
   <groupId>org.springframework.ai</groupId>
   <artifactId>spring-ai-gigachat</artifactId>
-  <version>0.0.3</version>
+  <version>0.0.4</version>
 </dependency>
 ```
