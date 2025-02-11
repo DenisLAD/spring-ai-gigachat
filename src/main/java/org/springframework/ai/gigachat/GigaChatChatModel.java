@@ -71,7 +71,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                 .requestOptions(buildRequestOptions(request))
                 .build();
 
-        return ChatModelObservationDocumentation.CHAT_MODEL_OPERATION
+        ChatResponse response = ChatModelObservationDocumentation.CHAT_MODEL_OPERATION
                 .observation(this.observationConvention,
                         DEFAULT_OBSERVATION_CONVENTION,
                         () -> observationContext,
@@ -106,6 +106,90 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
 
                     return chatResponse;
                 });
+
+        if (!isProxyToolCalls(prompt, this.defaultOptions) && response != null && isToolCall(response, Set.of("stop"))) {
+            var toolCallConversation = handleToolCalls(prompt, response);
+            return internalCall(new Prompt(toolCallConversation, prompt.getOptions()), response);
+        }
+
+        return response;
+    }
+
+    private ChatResponse internalCall(Prompt prompt, ChatResponse previousChatResponse) {
+
+        GigaChatChatRequest request = buildPrompt(prompt, false);
+
+        ChatModelObservationContext observationContext = ChatModelObservationContext.builder()
+                .prompt(prompt)
+                .provider(GigaChatApi.PROVIDER_NAME)
+                .requestOptions(buildRequestOptions(request))
+                .build();
+
+        ChatResponse response = ChatModelObservationDocumentation.CHAT_MODEL_OPERATION
+                .observation(this.observationConvention, DEFAULT_OBSERVATION_CONVENTION, () -> observationContext,
+                        this.observationRegistry)
+                .observe(() -> {
+
+                   GigaChatChatResponse gigaChatResponse = this.chatApi.chat(request);
+
+                    List<AssistantMessage.ToolCall> toolCalls = gigaChatResponse.getChoices().stream()
+                            .map(GigaChatChatResponse.Choice::getMessage)
+                            .filter(Objects::nonNull)
+                            .filter(item -> Objects.nonNull(item.getFunctionCall()))
+                            .map(msg -> new AssistantMessage.ToolCall(Optional.ofNullable(msg.getFunctionStateId()).map(Objects::toString).orElse(null), "function", msg.getFunctionCall().getName(), ModelOptionsUtils.toJsonString(msg.getFunctionCall().getArguments())))
+                            .toList();
+
+                    AssistantMessage assistantMessage = new AssistantMessage(gigaChatResponse.getChoices().stream()
+                            .map(GigaChatChatResponse.Choice::getMessage)
+                            .filter(Objects::nonNull)
+                            .map(GigaChatChatResponse.Message::getContent)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.joining())
+                            , Map.of(), toolCalls);
+
+                    ChatGenerationMetadata generationMetadata = ChatGenerationMetadata.NULL;
+                    if (gigaChatResponse.getUsage().getPromptTokens() != null && gigaChatResponse.getUsage().getCompletionTokens() != null) {
+                        generationMetadata = ChatGenerationMetadata.builder().finishReason(gigaChatResponse.getChoices().stream().reduce((first, last) -> last).orElseThrow().getFinishReason()).build();
+                    }
+
+                    var generator = new Generation(assistantMessage, generationMetadata);
+                    ChatResponse chatResponse = new ChatResponse(List.of(generator), buildAnswer(gigaChatResponse, previousChatResponse));
+
+                    observationContext.setResponse(chatResponse);
+
+                    return chatResponse;
+
+                });
+
+        if (!isProxyToolCalls(prompt, this.defaultOptions) && response != null && isToolCall(response, Set.of("stop"))) {
+            var toolCallConversation = handleToolCalls(prompt, response);
+            return internalCall(new Prompt(toolCallConversation, prompt.getOptions()), response);
+        }
+
+        return response;
+    }
+
+    private ChatResponseMetadata buildAnswer(GigaChatChatResponse response, ChatResponse previousResponse) {
+        return ChatResponseMetadata.builder()
+                .usage(from(response.getUsage(), previousResponse.getMetadata()))
+                .model(response.getModel())
+                .keyValue("created-at", response.getCreated())
+                .build();
+    }
+
+    private Usage from(GigaChatChatResponse.Usage usage, ChatResponseMetadata metadata) {
+
+        Long promptTokens = Long.valueOf(usage.getPromptTokens());
+        Long completionTokens = Long.valueOf(usage.getCompletionTokens());
+        Long totalTokens = Long.valueOf(usage.getTotalTokens());
+
+        if (Objects.nonNull(metadata.getUsage())) {
+            promptTokens += metadata.getUsage().getPromptTokens();
+            completionTokens += metadata.getUsage().getGenerationTokens();
+            totalTokens += metadata.getUsage().getTotalTokens();
+        }
+
+        return new DefaultUsage(promptTokens, completionTokens, totalTokens);
     }
 
     private ChatResponseMetadata buildAnswer(GigaChatChatResponse response) {
