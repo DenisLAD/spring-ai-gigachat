@@ -22,7 +22,7 @@ Add repository to your `pom.xml` file
 </repositories>
 ```
 
-and add dependency
+Add dependency
 
 ```xml
 <dependency>
