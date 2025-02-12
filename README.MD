@@ -4,7 +4,7 @@
 
 ## Usage
 
-Add repository to your `pom.xml` file
+### Add repository to your `pom.xml` file
 
 ```xml
 <repositories>
@@ -25,7 +25,7 @@ Add repository to your `pom.xml` file
 </repositories>
 ```
 
-Add dependency
+### Add dependency
 
 ```xml
 <dependency>
@@ -33,4 +33,53 @@ Add dependency
   <artifactId>spring-ai-gigachat</artifactId>
   <version>0.0.4</version>
 </dependency>
+```
+
+
+### Spring Configuration
+
+```java
+import io.micrometer.observation.ObservationRegistry;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.memory.InMemoryChatMemory;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.gigachat.GigaChatChatModel;
+import org.springframework.ai.gigachat.api.GigaChatApi;
+import org.springframework.ai.gigachat.api.GigaChatChatOptions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class GigaChatConfiguration {
+    private @Value("${config.authUrl}") String authUrl;
+    private @Value("${config.chatUrl}") String chatUrl;
+    private @Value("${config.clientId}") String clientId;
+    private @Value("${config.clientSecret}") String clientSecret;
+    private @Value("${config.model}") String model;
+    private @Value("${config.scope}") GigaChatApi.Scope scope;
+
+    public @Bean GigaChatChatOptions chatOptions() {
+        return GigaChatChatOptions.builder().model(model).build();
+    }
+
+    public @Bean GigaChatApi chatApi() {
+        return new GigaChatApi(chatUrl, authUrl, scope, clientId, clientSecret);
+    }
+
+    public @Bean ChatModel chatModel(GigaChatApi api, GigaChatChatOptions options) {
+        return new GigaChatChatModel(api, options, null, null, ObservationRegistry.NOOP);
+    }
+
+    public @Bean ChatClient chatClient(ChatModel chatModel, GigaChatChatOptions options) {
+        return ChatClient
+                .builder(chatModel)
+                .defaultOptions(options)
+                .defaultSystem(c -> c.text("Ты — GigaChat, русскоязычный автоматический ассистент. Ты разговариваешь с людьми и помогаешь им отвечая подробно на их вопросы."))
+                .defaultAdvisors(MessageChatMemoryAdvisor.builder(new InMemoryChatMemory()).build())
+                .build();
+    }
+} 
 ```
