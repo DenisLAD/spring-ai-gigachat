@@ -13,11 +13,14 @@ Add repository to your `pom.xml` file
         <url>https://repo1.maven.org/maven2</url>
     </repository>
     <repository>
-        <id>github</id>
-        <url>https://maven.pkg.github.com/DenisLAD/spring-ai-gigachat</url>
+        <id>jitpack</id>
+        <url>https://jitpack.io</url>
         <snapshots>
             <enabled>true</enabled>
         </snapshots>
+        <releases>
+            <enabled>true</enabled>
+        </releases>
     </repository>
 </repositories>
 ```
@@ -26,7 +29,7 @@ Add dependency
 
 ```xml
 <dependency>
-  <groupId>org.springframework.ai</groupId>
+  <groupId>com.github.DenisLAD</groupId>
   <artifactId>spring-ai-gigachat</artifactId>
   <version>0.0.4</version>
 </dependency>
