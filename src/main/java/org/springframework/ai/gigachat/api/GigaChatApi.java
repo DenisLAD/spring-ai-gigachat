@@ -23,6 +23,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -128,7 +129,7 @@ public class GigaChatApi {
     }
 
     public static class ApiKeySupplier implements Supplier<String> {
-        private static final long tokenUpdateInterval = TimeUnit.of(ChronoUnit.MINUTES).toMillis(1);
+        private static final long tokenUpdateInterval = TimeUnit.of(ChronoUnit.MINUTES).toSeconds(1);
         private final Scope scope;
         private final RestClient oauthRestClient;
         private String apiKey;
@@ -153,7 +154,7 @@ public class GigaChatApi {
 
         @Override
         public synchronized String get() {
-            if (StringUtils.hasText(apiKey) && apiKeyExpiresAt - tokenUpdateInterval > System.currentTimeMillis()) {
+            if (StringUtils.hasText(apiKey) && apiKeyExpiresAt - tokenUpdateInterval > Instant.now().getEpochSecond()) {
                 return apiKey;
             }
 
@@ -163,7 +164,7 @@ public class GigaChatApi {
 
             GigaChatOAuthResponse response = oauthRestClient.post().uri("/api/v2/oauth").headers(oauthHeaders).body(req).retrieve().onStatus(responseErrorHandler).body(GigaChatOAuthResponse.class);
             apiKey = response.getAccessToken();
-            apiKeyExpiresAt = response.getExpiresAt() * 1000;
+            apiKeyExpiresAt = response.getExpiresAt();
 
             return apiKey;
         }
