@@ -92,3 +92,32 @@ public class GigaChatConfiguration {
     }
 } 
 ```
+
+### Rest service
+
+```java
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping
+public class RestUsageExample {
+
+    private @Autowired ChatClient chatClient;
+
+    @GetMapping("question")
+    public String question(@RequestParam("txt") String query) {
+        return chatClient.prompt(query).call().chatResponse().getResult().getOutput().getContent();
+    }
+}
+```
+
+### Usage
+
+```shell
+curl --request GET --url http://localhost:8080/question?txt=Who%20are%20you%3F
+```
