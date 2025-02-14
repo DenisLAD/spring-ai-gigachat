@@ -1,8 +1,18 @@
 # Sber GigaChat integration module for Spring AI
 
-[GigaChat API](https://developers.sber.ru/portal/products/gigachat-api)
+[![](https://jitpack.io/v/DenisLAD/spring-ai-gigachat.svg)](https://jitpack.io/#DenisLAD/spring-ai-gigachat) [![](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven.yml/badge.svg)](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven.yml) [![](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven-publish.yml/badge.svg)](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven-publish.yml)
+
+[GigaChat API Documentation](https://developers.sber.ru/portal/products/gigachat-api)
+
+[Spring AI Documentation](https://docs.spring.io/spring-ai/reference/index.html)
 
 ## Usage
+
+> [!NOTE]  
+> `spring-ai-gigachat` is compatible with `spring-boot-ai:1.0.0-M5`
+>
+> More info: [Migrating from FunctionCallback to ToolCallback API](https://docs.spring.io/spring-ai/reference/api/tools-migration.html)
+
 
 ### Add repository to your `pom.xml` file
 
@@ -34,7 +44,6 @@
   <version>0.0.4</version>
 </dependency>
 ```
-
 
 ### Spring Configuration
 
