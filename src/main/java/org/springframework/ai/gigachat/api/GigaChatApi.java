@@ -129,7 +129,7 @@ public class GigaChatApi {
     }
 
     public static class ApiKeySupplier implements Supplier<String> {
-        private static final long tokenUpdateInterval = TimeUnit.of(ChronoUnit.MINUTES).toSeconds(1);
+        private static final long tokenUpdateInterval = TimeUnit.of(ChronoUnit.MINUTES).toMillis(1);
         private final Scope scope;
         private final RestClient oauthRestClient;
         private String apiKey;
@@ -154,7 +154,7 @@ public class GigaChatApi {
 
         @Override
         public synchronized String get() {
-            if (StringUtils.hasText(apiKey) && apiKeyExpiresAt - tokenUpdateInterval > Instant.now().getEpochSecond()) {
+            if (StringUtils.hasText(apiKey) && apiKeyExpiresAt - tokenUpdateInterval > Instant.now().toEpochMilli()) {
                 return apiKey;
             }
 
