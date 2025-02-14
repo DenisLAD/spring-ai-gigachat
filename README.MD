@@ -116,7 +116,7 @@ public class RestUsageExample {
 }
 ```
 
-### Usage
+### BASH Example
 
 ```shell
 curl --request GET --url http://localhost:8080/question?txt=Who%20are%20you%3F
