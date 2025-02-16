@@ -1,6 +1,6 @@
 # Sber GigaChat integration module for Spring AI
 
-[![](https://jitpack.io/v/DenisLAD/spring-ai-gigachat.svg)](https://jitpack.io/#DenisLAD/spring-ai-gigachat) [![](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven.yml/badge.svg)](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven.yml) [![](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven-publish.yml/badge.svg)](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven-publish.yml)
+[![](https://jitpack.io/v/DenisLAD/spring-ai-gigachat.svg)](https://jitpack.io/#DenisLAD/spring-ai-gigachat) ![Weekly download statistics](https://jitpack.io/v/DenisLAD/spring-ai-gigachat/week.svg) ![Monthly download statistics](https://jitpack.io/v/DenisLAD/spring-ai-gigachat/month.svg) [![](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven.yml/badge.svg)](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven.yml) [![](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven-publish.yml/badge.svg)](https://github.com/DenisLAD/spring-ai-gigachat/actions/workflows/maven-publish.yml)
 
 [GigaChat API Documentation](https://developers.sber.ru/portal/products/gigachat-api)
 
