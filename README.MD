@@ -41,7 +41,7 @@
 <dependency>
   <groupId>com.github.DenisLAD</groupId>
   <artifactId>spring-ai-gigachat</artifactId>
-  <version>0.0.4</version>
+  <version>0.0.6</version>
 </dependency>
 ```
 
