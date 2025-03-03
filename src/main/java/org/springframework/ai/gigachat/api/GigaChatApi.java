@@ -7,6 +7,7 @@ import org.springframework.ai.gigachat.api.model.GigaChatChatResponse;
 import org.springframework.ai.gigachat.api.model.GigaChatEmbeddingRequest;
 import org.springframework.ai.gigachat.api.model.GigaChatEmbeddingResponse;
 import org.springframework.ai.gigachat.api.model.GigaChatOAuthResponse;
+import org.springframework.ai.model.ModelOptionsUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class GigaChatApi {
@@ -88,7 +90,10 @@ public class GigaChatApi {
                 .body(Mono.just(chatRequest), GigaChatChatRequest.class)
                 .headers(defaultHeaders)
                 .retrieve()
-                .bodyToFlux(GigaChatChatResponse.class)
+                .bodyToFlux(String.class)
+                .takeUntil("[DONE]"::equals)
+                .filter(item -> !"[DONE]".equals(item))
+                .map(item -> ModelOptionsUtils.jsonToObject(item, GigaChatChatResponse.class))
                 .handle((data, sink) -> {
                     if (logger.isTraceEnabled()) {
                         logger.trace(data);

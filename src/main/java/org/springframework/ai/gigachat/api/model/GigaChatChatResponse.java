@@ -22,6 +22,7 @@ public class GigaChatChatResponse {
     @Data
     public static class Choice {
         private @JsonProperty("message") Message message;
+        private @JsonProperty("delta") Message delta;
         private @JsonProperty("index") Integer index;
         private @JsonProperty("finish_reason") String finishReason;
     }
