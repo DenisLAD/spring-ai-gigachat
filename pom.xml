@@ -6,7 +6,7 @@
 
     <groupId>org.springframework.ai</groupId>
     <artifactId>spring-ai-gigachat</artifactId>
-    <version>0.0.6</version>
+    <version>0.0.6-1</version>
 
     <distributionManagement>
         <repository>
@@ -46,7 +46,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <spring.ai.version>1.0.0-M5</spring.ai.version>
+        <spring.ai.version>1.0.0-M6</spring.ai.version>
         <org.mapstruct.version>1.6.3</org.mapstruct.version>
         <org.projectlombok.version>1.18.32</org.projectlombok.version>
         <spring.boot.version>3.4.2</spring.boot.version>

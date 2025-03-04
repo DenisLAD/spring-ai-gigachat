@@ -13,7 +13,6 @@ import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.metadata.Usage;
-import org.springframework.ai.chat.model.AbstractToolCallSupport;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -32,6 +31,10 @@ import org.springframework.ai.model.ModelOptionsUtils;
 import org.springframework.ai.model.function.FunctionCallback;
 import org.springframework.ai.model.function.FunctionCallbackResolver;
 import org.springframework.ai.model.function.FunctionCallingOptions;
+import org.springframework.ai.model.tool.LegacyToolCallingManager;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -47,18 +50,25 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class GigaChatChatModel extends AbstractToolCallSupport implements ChatModel {
+public class GigaChatChatModel implements ChatModel {
 
     private static final ChatModelObservationConvention DEFAULT_OBSERVATION_CONVENTION = new DefaultChatModelObservationConvention();
+    private static final ToolCallingManager DEFAULT_TOOL_CALLING_MANAGER = ToolCallingManager.builder().build();
+
     private final GigaChatApi chatApi;
     private final GigaChatChatOptions defaultOptions;
     private final ObservationRegistry observationRegistry;
+    private final ToolCallingManager toolCallingManager;
 
     @Setter
     private ChatModelObservationConvention observationConvention = DEFAULT_OBSERVATION_CONVENTION;
 
     public GigaChatChatModel(GigaChatApi chatApi, GigaChatChatOptions defaultOptions, FunctionCallbackResolver functionCallbackContext, List<FunctionCallback> toolFunctionCallbacks, ObservationRegistry observationRegistry) {
-        super(functionCallbackContext, defaultOptions, toolFunctionCallbacks);
+        this(chatApi, defaultOptions, new LegacyToolCallingManager(functionCallbackContext, toolFunctionCallbacks), observationRegistry);
+    }
+
+    public GigaChatChatModel(GigaChatApi chatApi, GigaChatChatOptions defaultOptions, ToolCallingManager toolCallingManager, ObservationRegistry observationRegistry) {
+        this.toolCallingManager = Optional.ofNullable(toolCallingManager).orElse(DEFAULT_TOOL_CALLING_MANAGER);
         this.chatApi = chatApi;
         this.defaultOptions = defaultOptions;
         this.observationRegistry = observationRegistry;
@@ -88,9 +98,18 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                     return chatResponse;
                 });
 
-        if (!isProxyToolCalls(prompt, this.defaultOptions) && Objects.nonNull(response) && isToolCall(response, Set.of("function_call"))) {
-            var toolCallConversation = handleToolCalls(prompt, response);
-            return internalCall(new Prompt(toolCallConversation, prompt.getOptions()), response);
+
+        if (ToolCallingChatOptions.isInternalToolExecutionEnabled(prompt.getOptions()) && Objects.nonNull(response) && response.hasToolCalls()) {
+            var toolExecutionResult = toolCallingManager.executeToolCalls(prompt, response);
+            if (toolExecutionResult.returnDirect()) {
+                return ChatResponse
+                        .builder()
+                        .from(response)
+                        .generations(ToolExecutionResult.buildGenerations(toolExecutionResult))
+                        .build();
+            } else {
+                return this.internalCall(new Prompt(toolExecutionResult.conversationHistory(), prompt.getOptions()), response);
+            }
         }
 
         return response;
@@ -156,13 +175,13 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
 
     private Usage from(GigaChatChatResponse.Usage usage, ChatResponseMetadata metadata) {
 
-        Long promptTokens = Long.valueOf(Optional.ofNullable(usage).map(GigaChatChatResponse.Usage::getPromptTokens).orElse(0));
-        Long completionTokens = Long.valueOf(Optional.ofNullable(usage).map(GigaChatChatResponse.Usage::getCompletionTokens).orElse(0));
-        Long totalTokens = Long.valueOf(Optional.ofNullable(usage).map(GigaChatChatResponse.Usage::getTotalTokens).orElse(0));
+        Integer promptTokens = Optional.ofNullable(usage).map(GigaChatChatResponse.Usage::getPromptTokens).orElse(0);
+        Integer completionTokens = Optional.ofNullable(usage).map(GigaChatChatResponse.Usage::getCompletionTokens).orElse(0);
+        Integer totalTokens = Optional.ofNullable(usage).map(GigaChatChatResponse.Usage::getTotalTokens).orElse(0);
 
         if (Objects.nonNull(metadata.getUsage())) {
             promptTokens += metadata.getUsage().getPromptTokens();
-            completionTokens += metadata.getUsage().getGenerationTokens();
+            completionTokens += metadata.getUsage().getCompletionTokens();
             totalTokens += metadata.getUsage().getTotalTokens();
         }
 
@@ -171,9 +190,9 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
 
     private Usage from(GigaChatChatResponse.Usage usage) {
         if (Objects.isNull(usage)) {
-            return new DefaultUsage(0L, 0L, 0L);
+            return new DefaultUsage(0, 0, 0);
         }
-        return new DefaultUsage(Long.valueOf(usage.getPromptTokens()), Long.valueOf(usage.getCompletionTokens()), Long.valueOf(usage.getTotalTokens()));
+        return new DefaultUsage(usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens());
     }
 
     private ChatOptions buildRequestOptions(GigaChatChatRequest request) {
@@ -200,12 +219,15 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
         Set<String> functionsForThisRequest = new HashSet<>();
         GigaChatChatOptions runtimeOptions = getRuntimeOptions(prompt, functionsForThisRequest);
 
-        if (!CollectionUtils.isEmpty(this.defaultOptions.getFunctions())) {
-            functionsForThisRequest.addAll(this.defaultOptions.getFunctions());
+        if (!CollectionUtils.isEmpty(defaultOptions.getFunctions())) {
+            functionsForThisRequest.addAll(defaultOptions.getFunctions());
         }
 
-        GigaChatChatOptions mergedOptions = ModelOptionsUtils.merge(runtimeOptions, this.defaultOptions, GigaChatChatOptions.class);
-
+        GigaChatChatOptions mergedOptions = ModelOptionsUtils.merge(runtimeOptions, defaultOptions, GigaChatChatOptions.class);
+        mergedOptions.setInternalToolExecutionEnabled(ModelOptionsUtils.mergeOption(runtimeOptions.isInternalToolExecutionEnabled(), defaultOptions.isInternalToolExecutionEnabled()));
+        mergedOptions.setToolCallbacks(ModelOptionsUtils.mergeOption(runtimeOptions.getToolCallbacks(), defaultOptions.getToolCallbacks()));
+        mergedOptions.setToolNames(ModelOptionsUtils.mergeOption(runtimeOptions.getToolNames(), defaultOptions.getToolNames()));
+        mergedOptions.setToolContext(ModelOptionsUtils.mergeOption(runtimeOptions.getToolContext(), defaultOptions.getToolContext()));
 
         if (!StringUtils.hasText(mergedOptions.getModel())) {
             throw new IllegalArgumentException("Модель не установлена!");
@@ -228,7 +250,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
                 .temperature(mergedOptions.getTemperature());
 
         if (!CollectionUtils.isEmpty(functionsForThisRequest)) {
-            requestBuilder.functions(getFunctionTools(functionsForThisRequest));
+            requestBuilder.functions(getFunctionTools(mergedOptions, functionsForThisRequest));
         }
         return requestBuilder.build();
     }
@@ -238,10 +260,15 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
         if (Objects.nonNull(prompt.getOptions())) {
             if (prompt.getOptions() instanceof FunctionCallingOptions functionCallingOptions) {
                 runtimeOptions = ModelOptionsUtils.copyToTarget(functionCallingOptions, FunctionCallingOptions.class, GigaChatChatOptions.class);
+            } else if (prompt.getOptions() instanceof ToolCallingChatOptions toolCallingChatOptions) {
+                runtimeOptions = ModelOptionsUtils.copyToTarget(toolCallingChatOptions, ToolCallingChatOptions.class, GigaChatChatOptions.class);
             } else {
                 runtimeOptions = ModelOptionsUtils.copyToTarget(prompt.getOptions(), ChatOptions.class, GigaChatChatOptions.class);
             }
-            functionsForThisRequest.addAll(this.runtimeFunctionCallbackConfigurations(runtimeOptions));
+            if (!CollectionUtils.isEmpty(runtimeOptions.getToolCallbacks())) {
+                functionsForThisRequest.addAll(runtimeOptions.getToolCallbacks().stream().map(FunctionCallback::getName).collect(Collectors.toSet()));
+                runtimeOptions.setToolNames(functionsForThisRequest);
+            }
         }
         return runtimeOptions;
     }
@@ -272,7 +299,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
             toolCalls = assistantMessage.getToolCalls().stream().map(toolCall -> GigaChatChatRequest.Message
                     .builder()
                     .role(GigaChatRole.ASSISTANT)
-                    .content(assistantMessage.getContent())
+                    .content(assistantMessage.getText())
                     .functionStateId(Optional.ofNullable(toolCall.id()).map(UUID::fromString).orElse(null))
                     .functionCall(new GigaChatChatRequest.FunctionCallRequest(
                             toolCall.name(),
@@ -286,31 +313,32 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
         return List.of(GigaChatChatRequest.Message
                 .builder()
                 .role(GigaChatRole.ASSISTANT)
-                .content(assistantMessage.getContent())
+                .content(assistantMessage.getText())
                 .build());
     }
 
     private static List<GigaChatChatRequest.Message> createSystemMessage(SystemMessage systemMessage) {
         return List.of(GigaChatChatRequest.Message.builder()
                 .role(GigaChatRole.SYSTEM)
-                .content(systemMessage.getContent()).build());
+                .content(systemMessage.getText()).build());
     }
 
     private static List<GigaChatChatRequest.Message> createUserMessage(UserMessage userMessage) {
         return List.of(GigaChatChatRequest.Message
                 .builder()
                 .role(GigaChatRole.USER)
-                .content(userMessage.getContent())
+                .content(userMessage.getText())
                 .build());
     }
 
-    private Collection<GigaChatChatRequest.Function> getFunctionTools(Set<String> functionNames) {
-        return resolveFunctionCallbacks(functionNames)
+    private Collection<GigaChatChatRequest.Function> getFunctionTools(GigaChatChatOptions mergedOptions, Set<String> functionNames) {
+        return toolCallingManager.resolveToolDefinitions(mergedOptions)
                 .stream()
-                .map(functionCallback -> new GigaChatChatRequest.Function(
-                        functionCallback.getName(),
-                        functionCallback.getDescription(),
-                        ModelOptionsUtils.jsonToMap(functionCallback.getInputTypeSchema()),
+                .filter(item -> functionNames.contains(item.name()))
+                .map(toolDefinition -> new GigaChatChatRequest.Function(
+                        toolDefinition.name(),
+                        toolDefinition.description(),
+                        ModelOptionsUtils.jsonToMap(toolDefinition.inputSchema()),
                         null,
                         null))
                 .toList();
@@ -332,7 +360,7 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
             ChatModelObservationContext observationContext = createObservationContext(prompt, request);
 
             Observation observation = ChatModelObservationDocumentation.CHAT_MODEL_OPERATION.observation(this.observationConvention, DEFAULT_OBSERVATION_CONVENTION, () -> observationContext, this.observationRegistry);
-            observation.parentObservation(view.getOrDefault(ObservationThreadLocalAccessor.KEY, null)).start();
+            observation.parentObservation(Objects.requireNonNull(view.getOrDefault(ObservationThreadLocalAccessor.KEY, null))).start();
 
             Flux<GigaChatChatResponse> gigaChatResponse = chatApi.streamingChat(request);
 
@@ -346,9 +374,18 @@ public class GigaChatChatModel extends AbstractToolCallSupport implements ChatMo
             });
 
             return chatResponse.flatMap(response -> {
-                if (!isProxyToolCalls(prompt, this.defaultOptions) && Objects.nonNull(response) && isToolCall(response, Set.of("function_call"))) {
-                    var toolCallConversation = handleToolCalls(prompt, response);
-                    return internalStream(new Prompt(toolCallConversation, prompt.getOptions()), response);
+                if (ToolCallingChatOptions.isInternalToolExecutionEnabled(prompt.getOptions()) && Objects.nonNull(response) && response.hasToolCalls()) {
+                    var toolExecutionResult = toolCallingManager.executeToolCalls(prompt, response);
+                    if (toolExecutionResult.returnDirect()) {
+                        return Flux.just(ChatResponse
+                                .builder()
+                                .from(response)
+                                .generations(ToolExecutionResult.buildGenerations(toolExecutionResult))
+                                .build()
+                        );
+                    } else {
+                        return this.internalStream(new Prompt(toolExecutionResult.conversationHistory(), prompt.getOptions()), response);
+                    }
                 }
                 return Flux.just(response);
             });

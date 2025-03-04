@@ -61,7 +61,7 @@ public class GigaChatEmbeddingModel extends AbstractEmbeddingModel {
     }
 
     private Usage from(GigaChatEmbeddingResponse response) {
-        return new DefaultUsage((long) response.getData().stream().mapToInt(item -> item.getUsage().getPromptTokens()).sum(), 0L);
+        return new DefaultUsage(response.getData().stream().mapToInt(item -> item.getUsage().getPromptTokens()).sum(), 0);
     }
 
     private GigaChatEmbeddingRequest embeddingRequest(List<String> inputContent, EmbeddingOptions options) {
