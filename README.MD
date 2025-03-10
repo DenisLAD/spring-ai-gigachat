@@ -9,7 +9,7 @@
 ## Usage
 
 > [!NOTE]  
-> `spring-ai-gigachat` is compatible with `spring-boot-ai:1.0.0-M5`
+> `spring-ai-gigachat` is compatible with `spring-boot-ai:1.0.0-M6`
 >
 > More info: [Migrating from FunctionCallback to ToolCallback API](https://docs.spring.io/spring-ai/reference/api/tools-migration.html)
 
@@ -41,7 +41,7 @@
 <dependency>
   <groupId>com.github.DenisLAD</groupId>
   <artifactId>spring-ai-gigachat</artifactId>
-  <version>0.0.6</version>
+  <version>0.0.6-1</version>
 </dependency>
 ```
 

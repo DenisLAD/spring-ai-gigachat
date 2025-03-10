@@ -99,7 +99,7 @@ public class GigaChatChatModel implements ChatModel {
                 });
 
 
-        if (ToolCallingChatOptions.isInternalToolExecutionEnabled(prompt.getOptions()) && Objects.nonNull(response) && response.hasToolCalls()) {
+        if (ToolCallingChatOptions.isInternalToolExecutionEnabled(prompt.getOptions()) && response.hasToolCalls()) {
             var toolExecutionResult = toolCallingManager.executeToolCalls(prompt, response);
             if (toolExecutionResult.returnDirect()) {
                 return ChatResponse
@@ -294,7 +294,7 @@ public class GigaChatChatModel implements ChatModel {
     }
 
     private static List<GigaChatChatRequest.Message> createAssistantMessage(AssistantMessage assistantMessage) {
-        List<GigaChatChatRequest.Message> toolCalls = List.of();
+        List<GigaChatChatRequest.Message> toolCalls;
         if (!CollectionUtils.isEmpty(assistantMessage.getToolCalls())) {
             toolCalls = assistantMessage.getToolCalls().stream().map(toolCall -> GigaChatChatRequest.Message
                     .builder()
