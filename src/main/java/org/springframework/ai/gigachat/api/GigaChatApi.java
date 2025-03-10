@@ -41,6 +41,7 @@ public class GigaChatApi {
     private final RestClient restClient;
     private final WebClient webClient;
     private final Consumer<HttpHeaders> defaultHeaders;
+    private final ApiKeySupplier apiKeySupplier;
 
     public GigaChatApi(String baseUrl, String authUrl, Scope scope, String clientId, String secret) {
         this(baseUrl, clientId, new ApiKeySupplier(scope, clientId, secret, RestClient.builder().baseUrl(authUrl).clone()), RestClient.builder(), WebClient.builder());
@@ -50,7 +51,7 @@ public class GigaChatApi {
         this(baseUrl, clientId, new ApiKeySupplier(scope, clientId, secret, restClientBuilder.baseUrl(authUrl).clone()), restClientBuilder, webClientBuilder);
     }
 
-    public GigaChatApi(String baseUrl, String clientId, Supplier<String> apiKeySupplier, RestClient.Builder restClientBuilder, WebClient.Builder webClientBuilder) {
+    public GigaChatApi(String baseUrl, String clientId, ApiKeySupplier apiKeySupplier, RestClient.Builder restClientBuilder, WebClient.Builder webClientBuilder) {
         this.responseErrorHandler = new GigaChataResponseErrorHandler();
 
         String xSession = UUID.randomUUID().toString();
@@ -64,6 +65,7 @@ public class GigaChatApi {
             headers.set("X-Request-ID", UUID.randomUUID().toString());
         };
 
+        this.apiKeySupplier = apiKeySupplier;
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
     }
@@ -71,6 +73,10 @@ public class GigaChatApi {
     public GigaChatChatResponse chat(GigaChatChatRequest chatRequest) {
         Assert.notNull(chatRequest, REQUEST_BODY_NULL_ERROR);
         Assert.isTrue(!chatRequest.getStream(), "Потоковая обработка должна быть выключена.");
+
+        if (apiKeySupplier.isTokenExpired()) {
+            apiKeySupplier.generateNewApiKey();
+        }
 
         return this.restClient.post()
                 .uri("/api/v1/chat/completions")
@@ -85,6 +91,9 @@ public class GigaChatApi {
         Assert.notNull(chatRequest, REQUEST_BODY_NULL_ERROR);
         Assert.isTrue(chatRequest.getStream(), "Потоковая обработка должна быть включена.");
 
+        if (apiKeySupplier.isTokenExpired()) {
+            apiKeySupplier.generateNewApiKey();
+        }
         return this.webClient.post()
                 .uri("/api/v1/chat/completions")
                 .body(Mono.just(chatRequest), GigaChatChatRequest.class)
@@ -105,6 +114,9 @@ public class GigaChatApi {
     public GigaChatEmbeddingResponse embed(GigaChatEmbeddingRequest embeddingsRequest) {
         Assert.notNull(embeddingsRequest, REQUEST_BODY_NULL_ERROR);
 
+        if (apiKeySupplier.isTokenExpired()) {
+            apiKeySupplier.generateNewApiKey();
+        }
         return this.restClient.post()
                 .uri("/api/v1/embeddings")
                 .body(embeddingsRequest)
@@ -163,17 +175,27 @@ public class GigaChatApi {
                 return apiKey;
             }
 
+            generateNewApiKey();
+            return apiKey;
+        }
+
+        public boolean isTokenExpired() {
+            // Проверка на истечение времени токена
+            return Instant.now().getEpochSecond() > apiKeyExpiresAt - tokenUpdateInterval;
+        }
+
+        public void generateNewApiKey() {
             MultiValueMap<String, String> req = new LinkedMultiValueMap<>();
             req.add("scope", scope.name());
 
 
             GigaChatOAuthResponse response = oauthRestClient.post().uri("/api/v2/oauth").headers(oauthHeaders).body(req).retrieve().onStatus(responseErrorHandler).body(GigaChatOAuthResponse.class);
+            assert response != null;
             apiKey = response.getAccessToken();
             apiKeyExpiresAt = response.getExpiresAt();
-
-            return apiKey;
         }
     }
+
 
     public enum Scope {
         GIGACHAT_API_PERS,
