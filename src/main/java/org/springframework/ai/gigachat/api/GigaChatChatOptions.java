@@ -61,6 +61,7 @@ public class GigaChatChatOptions implements ToolCallingChatOptions, EmbeddingOpt
     /**
      * The interval at which the model should update its internal state, if applicable.
      */
+    @lombok.Builder.Default
     private @JsonProperty("update_interval") Integer updateInterval = 0;
 
     /**
@@ -76,11 +77,13 @@ public class GigaChatChatOptions implements ToolCallingChatOptions, EmbeddingOpt
     /**
      * List of function callbacks that can be triggered during the chat session.
      */
+    @lombok.Builder.Default
     private @JsonIgnore List<FunctionCallback> toolCallbacks = new ArrayList<>();
 
     /**
      * Set of names representing tools that can be called during the chat session.
      */
+    @lombok.Builder.Default
     private @JsonIgnore Set<String> toolNames = new HashSet<>();
 
     /**
