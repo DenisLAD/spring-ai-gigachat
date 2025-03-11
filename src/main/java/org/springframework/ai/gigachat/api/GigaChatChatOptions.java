@@ -25,27 +25,73 @@ import java.util.Set;
 @Data
 public class GigaChatChatOptions implements ToolCallingChatOptions, EmbeddingOptions {
 
+    /**
+     * The name of the model to be used for generating responses in the chat session.
+     */
     private @JsonProperty("model") String model;
+
+    /**
+     * Controls the randomness of predictions by scaling the logits before applying softmax.
+     * Higher values make the output more random, while lower values make it more deterministic.
+     */
     private @JsonProperty("temperature") Double temperature;
+
+    /**
+     * An alternative to sampling with temperature. This parameter nucleus sampling considers
+     * the smallest possible set of tokens whose cumulative probability exceeds the top_p value.
+     */
     private @JsonProperty("top_p") Double topP;
+
+    /**
+     * Whether the API should stream its responses incrementally rather than sending them as a single response.
+     */
     private @JsonProperty("stream") Boolean stream;
+
+    /**
+     * The maximum number of tokens to generate in the completion. If not set, the model will use its default value.
+     */
     private @JsonProperty("max_tokens") Integer maxTokens;
+
+    /**
+     * The penalty applied to the log probability of repeating the same token.
+     * A higher value decreases the likelihood of repetition.
+     */
     private @JsonProperty("repetition_penalty") Double frequencyPenalty;
+
+    /**
+     * The interval at which the model should update its internal state, if applicable.
+     */
     private @JsonProperty("update_interval") Integer updateInterval = 0;
+
+    /**
+     * Metadata associated with the chat session. This can be used to store additional context or information.
+     */
     private @JsonProperty("metadata") Map<String, String> metadata;
+
+    /**
+     * Whether the generated responses should be stored for future reference.
+     */
     private @JsonProperty("store") Boolean store;
 
-    @JsonIgnore
-    private List<FunctionCallback> toolCallbacks = new ArrayList<>();
+    /**
+     * List of function callbacks that can be triggered during the chat session.
+     */
+    private @JsonIgnore List<FunctionCallback> toolCallbacks = new ArrayList<>();
 
-    @JsonIgnore
-    private Set<String> toolNames = new HashSet<>();
+    /**
+     * Set of names representing tools that can be called during the chat session.
+     */
+    private @JsonIgnore Set<String> toolNames = new HashSet<>();
 
-    @JsonIgnore
-    private Map<String, Object> toolContext;
+    /**
+     * Contextual data for the tools, which may influence their behavior.
+     */
+    private @JsonIgnore Map<String, Object> toolContext;
 
-    @JsonIgnore
-    private Boolean internalToolExecutionEnabled;
+    /**
+     * Indicates whether internal tool execution is enabled.
+     */
+    private @JsonIgnore Boolean internalToolExecutionEnabled;
 
     @Override
     public List<FunctionCallback> getFunctionCallbacks() {
@@ -67,11 +113,21 @@ public class GigaChatChatOptions implements ToolCallingChatOptions, EmbeddingOpt
         setToolNames(functions);
     }
 
+    /**
+     * Determines whether tool calls should be proxied.
+     *
+     * @return A boolean indicating whether internal tool execution is enabled.
+     */
     @JsonIgnore
     public Boolean getProxyToolCalls() {
         return this.internalToolExecutionEnabled != null ? !this.internalToolExecutionEnabled : null;
     }
 
+    /**
+     * Sets the proxy tool calls configuration.
+     *
+     * @param proxyToolCalls A boolean indicating whether to enable or disable internal tool execution.
+     */
     @JsonIgnore
     public void setProxyToolCalls(Boolean proxyToolCalls) {
         this.internalToolExecutionEnabled = proxyToolCalls != null ? !proxyToolCalls : null;
@@ -82,6 +138,11 @@ public class GigaChatChatOptions implements ToolCallingChatOptions, EmbeddingOpt
         return null;
     }
 
+    /**
+     * Creates a copy of the current chat options.
+     *
+     * @return A new instance of GigaChatChatOptions with the same configuration as this one.
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T extends ChatOptions> T copy() {
@@ -103,6 +164,11 @@ public class GigaChatChatOptions implements ToolCallingChatOptions, EmbeddingOpt
         return null;
     }
 
+    /**
+     * Checks if internal tool execution is enabled.
+     *
+     * @return A boolean indicating whether internal tool execution is enabled.
+     */
     @Override
     public Boolean isInternalToolExecutionEnabled() {
         return internalToolExecutionEnabled;

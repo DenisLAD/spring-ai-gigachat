@@ -50,23 +50,71 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Implementation of the {@link ChatModel} interface using GigaChat API.
+ */
 public class GigaChatChatModel implements ChatModel {
 
+    /**
+     * Default observation convention used for chat model operations.
+     */
     private static final ChatModelObservationConvention DEFAULT_OBSERVATION_CONVENTION = new DefaultChatModelObservationConvention();
+
+    /**
+     * Default tool calling manager used when none is provided.
+     */
     private static final ToolCallingManager DEFAULT_TOOL_CALLING_MANAGER = ToolCallingManager.builder().build();
 
+    /**
+     * The GigaChat API client used to interact with the GigaChat service.
+     */
     private final GigaChatApi chatApi;
+
+    /**
+     * Default options for chat operations.
+     */
     private final GigaChatChatOptions defaultOptions;
+
+    /**
+     * Registry for observations, which is used for monitoring and logging purposes.
+     */
     private final ObservationRegistry observationRegistry;
+
+    /**
+     * Manager responsible for handling tool calls in the chat model.
+     */
     private final ToolCallingManager toolCallingManager;
 
+    /**
+     * Observation convention to be used for this chat model instance.
+     * Can be set by external clients.
+     */
     @Setter
     private ChatModelObservationConvention observationConvention = DEFAULT_OBSERVATION_CONVENTION;
 
+    /**
+     * Constructs a new {@link GigaChatChatModel} using the provided API client,
+     * default options, function callback context, tool function callbacks, and observation registry.
+     *
+     * @param chatApi               The GigaChat API client.
+     * @param defaultOptions        Default options for chat operations.
+     * @param functionCallbackContext Context for resolving function callbacks.
+     * @param toolFunctionCallbacks List of tool function callbacks.
+     * @param observationRegistry   Registry for observations.
+     */
     public GigaChatChatModel(GigaChatApi chatApi, GigaChatChatOptions defaultOptions, FunctionCallbackResolver functionCallbackContext, List<FunctionCallback> toolFunctionCallbacks, ObservationRegistry observationRegistry) {
         this(chatApi, defaultOptions, new LegacyToolCallingManager(functionCallbackContext, toolFunctionCallbacks), observationRegistry);
     }
 
+    /**
+     * Constructs a new {@link GigaChatChatModel} using the provided API client,
+     * default options, tool calling manager, and observation registry.
+     *
+     * @param chatApi         The GigaChat API client.
+     * @param defaultOptions  Default options for chat operations.
+     * @param toolCallingManager Manager responsible for handling tool calls.
+     * @param observationRegistry Registry for observations.
+     */
     public GigaChatChatModel(GigaChatApi chatApi, GigaChatChatOptions defaultOptions, ToolCallingManager toolCallingManager, ObservationRegistry observationRegistry) {
         this.toolCallingManager = Optional.ofNullable(toolCallingManager).orElse(DEFAULT_TOOL_CALLING_MANAGER);
         this.chatApi = chatApi;
@@ -74,11 +122,21 @@ public class GigaChatChatModel implements ChatModel {
         this.observationRegistry = observationRegistry;
     }
 
+    /**
+     * Calls the chat API with the given prompt and returns a single {@link ChatResponse}.
+     */
     @Override
     public ChatResponse call(Prompt prompt) {
         return internalCall(prompt, null);
     }
 
+    /**
+     * Internal method to handle the actual call to the GigaChat API.
+     *
+     * @param prompt             The user's input prompt.
+     * @param previousChatResponse Previous chat response, if available.
+     * @return A {@link ChatResponse} containing the assistant's reply and any associated metadata.
+     */
     private ChatResponse internalCall(Prompt prompt, ChatResponse previousChatResponse) {
         GigaChatChatRequest request = buildPrompt(prompt, false);
         ChatModelObservationContext observationContext = createObservationContext(prompt, request);
@@ -115,6 +173,12 @@ public class GigaChatChatModel implements ChatModel {
         return response;
     }
 
+    /**
+     * Creates the metadata for a generated response.
+     *
+     * @param gigaChatResponse The GigaChat API response.
+     * @return A {@link ChatGenerationMetadata} instance containing metadata about the generation process.
+     */
     private ChatGenerationMetadata createGenerationMetadata(GigaChatChatResponse gigaChatResponse) {
         ChatGenerationMetadata generationMetadata = ChatGenerationMetadata.NULL;
         if (Objects.nonNull(gigaChatResponse.getUsage()) && Objects.nonNull(gigaChatResponse.getUsage().getPromptTokens()) && Objects.nonNull(gigaChatResponse.getUsage().getCompletionTokens())) {
@@ -131,10 +195,25 @@ public class GigaChatChatModel implements ChatModel {
         return generationMetadata;
     }
 
+    /**
+     * Builds a chat response from the generated data and previous response (if any).
+     *
+     * @param previousChatResponse The previous {@link ChatResponse} in the conversation.
+     * @param generator            The new generation to add to the response.
+     * @param gigaChatResponse     The raw GigaChat API response.
+     * @return A complete {@link ChatResponse}.
+     */
     private ChatResponse buildChatResponse(ChatResponse previousChatResponse, Generation generator, GigaChatChatResponse gigaChatResponse) {
         return new ChatResponse(List.of(generator), buildAnswer(gigaChatResponse, previousChatResponse));
     }
 
+    /**
+     * Creates an observation context for the given prompt and request.
+     *
+     * @param prompt The user's input prompt.
+     * @param request The built GigaChat API request.
+     * @return A {@link ChatModelObservationContext} instance containing details about the current operation.
+     */
     private ChatModelObservationContext createObservationContext(Prompt prompt, GigaChatChatRequest request) {
         return ChatModelObservationContext.builder()
                 .prompt(prompt)
@@ -143,6 +222,13 @@ public class GigaChatChatModel implements ChatModel {
                 .build();
     }
 
+    /**
+     * Creates an assistant message from the response data.
+     *
+     * @param gigaChatResponse The GigaChat API response.
+     * @param toolCalls        List of tool calls extracted from the response.
+     * @return An {@link AssistantMessage} containing the assistant's reply and any associated tool calls.
+     */
     private AssistantMessage createAssistantMessage(GigaChatChatResponse gigaChatResponse, List<AssistantMessage.ToolCall> toolCalls) {
         return new AssistantMessage(gigaChatResponse.getChoices().stream()
                 .map(item -> Optional.ofNullable(item.getMessage()).orElseGet(item::getDelta))
@@ -153,6 +239,12 @@ public class GigaChatChatModel implements ChatModel {
                 , Map.of(), toolCalls);
     }
 
+    /**
+     * Extracts tool calls from the GigaChat API response.
+     *
+     * @param gigaChatResponse The GigaChat API response.
+     * @return A list of {@link AssistantMessage.ToolCall} instances representing tool calls made during the conversation.
+     */
     private List<AssistantMessage.ToolCall> extractToolCalls(GigaChatChatResponse gigaChatResponse) {
         return gigaChatResponse.getChoices().stream()
                 .map(item -> Optional.ofNullable(item.getMessage()).orElseGet(item::getDelta))
@@ -162,6 +254,13 @@ public class GigaChatChatModel implements ChatModel {
                 .toList();
     }
 
+    /**
+     * Builds the response metadata based on the GigaChat API response and previous response (if any).
+     *
+     * @param response The GigaChat API response.
+     * @param previousResponse Previous chat response, if available.
+     * @return A {@link ChatResponseMetadata} instance containing usage information and other metadata.
+     */
     private ChatResponseMetadata buildAnswer(GigaChatChatResponse response, ChatResponse previousResponse) {
         Usage usage = Optional.ofNullable(previousResponse)
                 .map(prev -> from(response.getUsage(), prev.getMetadata()))
@@ -173,6 +272,13 @@ public class GigaChatChatModel implements ChatModel {
                 .build();
     }
 
+    /**
+     * Merges usage information from two responses.
+     *
+     * @param usage      Usage information from the current API response.
+     * @param metadata The previous response's metadata containing usage info.
+     * @return A {@link Usage} instance representing the merged usage statistics.
+     */
     private Usage from(GigaChatChatResponse.Usage usage, ChatResponseMetadata metadata) {
 
         Integer promptTokens = Optional.ofNullable(usage).map(GigaChatChatResponse.Usage::getPromptTokens).orElse(0);
@@ -188,6 +294,12 @@ public class GigaChatChatModel implements ChatModel {
         return new DefaultUsage(promptTokens, completionTokens, totalTokens);
     }
 
+    /**
+     * Converts the usage information from the GigaChat API response to a {@link Usage} instance.
+     *
+     * @param usage The usage information from the API response.
+     * @return A {@link Usage} instance representing the token counts.
+     */
     private Usage from(GigaChatChatResponse.Usage usage) {
         if (Objects.isNull(usage)) {
             return new DefaultUsage(0, 0, 0);
@@ -195,6 +307,12 @@ public class GigaChatChatModel implements ChatModel {
         return new DefaultUsage(usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens());
     }
 
+    /**
+     * Converts the request options from a {@link GigaChatChatRequest} to a {@link ChatOptions} instance.
+     *
+     * @param request The request object containing various parameters.
+     * @return A {@link ChatOptions} instance representing the same set of parameters.
+     */
     private ChatOptions buildRequestOptions(GigaChatChatRequest request) {
         return ChatOptions.builder()
                 .model(request.getModel())
@@ -205,6 +323,13 @@ public class GigaChatChatModel implements ChatModel {
                 .build();
     }
 
+    /**
+     * Converts the user prompt and options into a {@link GigaChatChatRequest}.
+     *
+     * @param prompt The user's input prompt.
+     * @param stream Flag indicating whether to enable streaming.
+     * @return A {@link GigaChatChatRequest} instance representing the request parameters.
+     */
     private GigaChatChatRequest buildPrompt(Prompt prompt, boolean stream) {
         List<GigaChatChatRequest.Message> messages = prompt.getInstructions().stream().map(GigaChatChatModel::convertMessage).flatMap(List::stream).toList();
 
@@ -236,6 +361,15 @@ public class GigaChatChatModel implements ChatModel {
         return buildRequest(stream, mergedOptions, messages, functionsForThisRequest);
     }
 
+    /**
+     * Constructs a GigaChat API request based on the specified options and parameters.
+     *
+     * @param stream   Flag indicating whether to enable streaming.
+     * @param mergedOptions The final options for the request after merging default and runtime settings.
+     * @param messages List of messages (converted from user input).
+     * @param functionsForThisRequest Set of function names enabled in this request.
+     * @return A {@link GigaChatChatRequest} instance representing the constructed API request.
+     */
     private GigaChatChatRequest buildRequest(boolean stream, GigaChatChatOptions mergedOptions, List<GigaChatChatRequest.Message> messages, Set<String> functionsForThisRequest) {
         String model = mergedOptions.getModel();
         GigaChatChatRequest.GigaChatChatRequestBuilder requestBuilder = GigaChatChatRequest.builder()
@@ -255,6 +389,13 @@ public class GigaChatChatModel implements ChatModel {
         return requestBuilder.build();
     }
 
+    /**
+     * Retrieves runtime options from the user prompt.
+     *
+     * @param prompt The user's input prompt.
+     * @param functionsForThisRequest Set to accumulate names of functions specified in this request.
+     * @return A {@link GigaChatChatOptions} instance containing the resolved runtime options.
+     */
     private GigaChatChatOptions getRuntimeOptions(Prompt prompt, Set<String> functionsForThisRequest) {
         GigaChatChatOptions runtimeOptions = null;
         if (Objects.nonNull(prompt.getOptions())) {
@@ -273,6 +414,12 @@ public class GigaChatChatModel implements ChatModel {
         return runtimeOptions;
     }
 
+    /**
+     * Converts a {@link Message} instance to a list of GigaChat API messages.
+     *
+     * @param message The input message.
+     * @return A list of {@link GigaChatChatRequest.Message} objects representing the converted message.
+     */
     private static List<GigaChatChatRequest.Message> convertMessage(Message message) {
         if (message instanceof UserMessage userMessage) {
             return createUserMessage(userMessage);
@@ -286,6 +433,12 @@ public class GigaChatChatModel implements ChatModel {
         throw new IllegalArgumentException("Неподдерживаемый тип: " + message.getMessageType());
     }
 
+    /**
+     * Converts a {@link ToolResponseMessage} to a list of GigaChat API messages.
+     *
+     * @param toolMessage The input tool response message.
+     * @return A list of {@link GigaChatChatRequest.Message} objects representing the converted tool response.
+     */
     private static List<GigaChatChatRequest.Message> createToolResponseMessage(ToolResponseMessage toolMessage) {
         return toolMessage.getResponses()
                 .stream()
@@ -293,6 +446,12 @@ public class GigaChatChatModel implements ChatModel {
                 .toList();
     }
 
+    /**
+     * Converts an {@link AssistantMessage} to a list of GigaChat API messages.
+     *
+     * @param assistantMessage The input assistant message.
+     * @return A list of {@link GigaChatChatRequest.Message} objects representing the converted assistant message.
+     */
     private static List<GigaChatChatRequest.Message> createAssistantMessage(AssistantMessage assistantMessage) {
         List<GigaChatChatRequest.Message> toolCalls;
         if (!CollectionUtils.isEmpty(assistantMessage.getToolCalls())) {
@@ -317,12 +476,24 @@ public class GigaChatChatModel implements ChatModel {
                 .build());
     }
 
+    /**
+     * Converts a {@link SystemMessage} to a list of GigaChat API messages.
+     *
+     * @param systemMessage The input system message.
+     * @return A list of {@link GigaChatChatRequest.Message} objects representing the converted system message.
+     */
     private static List<GigaChatChatRequest.Message> createSystemMessage(SystemMessage systemMessage) {
         return List.of(GigaChatChatRequest.Message.builder()
                 .role(GigaChatRole.SYSTEM)
                 .content(systemMessage.getText()).build());
     }
 
+    /**
+     * Converts a {@link UserMessage} to a list of GigaChat API messages.
+     *
+     * @param userMessage The input user message.
+     * @return A list of {@link GigaChatChatRequest.Message} objects representing the converted user message.
+     */
     private static List<GigaChatChatRequest.Message> createUserMessage(UserMessage userMessage) {
         return List.of(GigaChatChatRequest.Message
                 .builder()
@@ -331,6 +502,13 @@ public class GigaChatChatModel implements ChatModel {
                 .build());
     }
 
+    /**
+     * Retrieves function tools based on specified options and names.
+     *
+     * @param mergedOptions The final request options after merging default and runtime settings.
+     * @param functionNames Set of function names enabled in this request.
+     * @return A collection of {@link GigaChatChatRequest.Function} representing the resolved function definitions.
+     */
     private Collection<GigaChatChatRequest.Function> getFunctionTools(GigaChatChatOptions mergedOptions, Set<String> functionNames) {
         return toolCallingManager.resolveToolDefinitions(mergedOptions)
                 .stream()
@@ -344,16 +522,34 @@ public class GigaChatChatModel implements ChatModel {
                 .toList();
     }
 
+    /**
+     * Retrieves the default options configured for this chat model.
+     *
+     * @return A {@link ChatOptions} instance containing the default settings.
+     */
     @Override
     public ChatOptions getDefaultOptions() {
         return defaultOptions.toBuilder().build();
     }
 
+    /**
+     * Streams the chat response based on the user prompt.
+     *
+     * @param prompt The user's input prompt.
+     * @return A {@link Flux} emitting chat responses as they are generated.
+     */
     @Override
     public Flux<ChatResponse> stream(Prompt prompt) {
         return internalStream(prompt, null);
     }
 
+    /**
+     * Internally handles the streaming of chat responses with optional previous response context.
+     *
+     * @param prompt The user's input prompt.
+     * @param previousChatResponse Optional previous chat response to provide context.
+     * @return A {@link Flux} emitting chat responses as they are generated.
+     */
     private Flux<ChatResponse> internalStream(Prompt prompt, ChatResponse previousChatResponse) {
         return Flux.deferContextual(view -> {
             GigaChatChatRequest request = buildPrompt(prompt, true);

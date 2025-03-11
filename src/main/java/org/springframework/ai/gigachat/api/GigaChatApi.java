@@ -9,6 +9,7 @@ import org.springframework.ai.gigachat.api.model.GigaChatEmbeddingResponse;
 import org.springframework.ai.gigachat.api.model.GigaChatOAuthResponse;
 import org.springframework.ai.model.ModelOptionsUtils;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.converter.FormHttpMessageConverter;
@@ -24,15 +25,18 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+/**
+ * API class for interacting with GigaChat services.
+ */
 public class GigaChatApi {
     public static final String PROVIDER_NAME = "gigachat";
     public static final String REQUEST_BODY_NULL_ERROR = "Тело запроса не может быть пустым.";
@@ -42,14 +46,43 @@ public class GigaChatApi {
     private final WebClient webClient;
     private final Consumer<HttpHeaders> defaultHeaders;
 
+    /**
+     * Constructs a new GigaChatApi instance.
+     *
+     * @param baseUrl The base URL for the API.
+     * @param authUrl The authentication URL.
+     * @param scope   The OAuth scope.
+     * @param clientId The client ID for authentication.
+     * @param secret   The client secret for authentication.
+     */
     public GigaChatApi(String baseUrl, String authUrl, Scope scope, String clientId, String secret) {
         this(baseUrl, clientId, new ApiKeySupplier(scope, clientId, secret, RestClient.builder().baseUrl(authUrl).clone()), RestClient.builder(), WebClient.builder());
     }
 
+    /**
+     * Constructs a new GigaChatApi instance with custom RestClient and WebClient builders.
+     *
+     * @param baseUrl         The base URL for the API.
+     * @param authUrl         The authentication URL.
+     * @param scope           The OAuth scope.
+     * @param clientId        The client ID for authentication.
+     * @param secret          The client secret for authentication.
+     * @param restClientBuilder The builder for RestClient.
+     * @param webClientBuilder  The builder for WebClient.
+     */
     public GigaChatApi(String baseUrl, String authUrl, Scope scope, String clientId, String secret, RestClient.Builder restClientBuilder, WebClient.Builder webClientBuilder) {
         this(baseUrl, clientId, new ApiKeySupplier(scope, clientId, secret, restClientBuilder.baseUrl(authUrl).clone()), restClientBuilder, webClientBuilder);
     }
 
+    /**
+     * Constructs a new GigaChatApi instance with a custom API key supplier.
+     *
+     * @param baseUrl          The base URL for the API.
+     * @param clientId         The client ID for authentication.
+     * @param apiKeySupplier   Supplier of the API key.
+     * @param restClientBuilder The builder for RestClient.
+     * @param webClientBuilder  The builder for WebClient.
+     */
     public GigaChatApi(String baseUrl, String clientId, Supplier<String> apiKeySupplier, RestClient.Builder restClientBuilder, WebClient.Builder webClientBuilder) {
         this.responseErrorHandler = new GigaChataResponseErrorHandler();
 
@@ -68,6 +101,12 @@ public class GigaChatApi {
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
     }
 
+    /**
+     * Sends a chat request to the GigaChat API.
+     *
+     * @param chatRequest The chat request object.
+     * @return The response from the GigaChat API.
+     */
     public GigaChatChatResponse chat(GigaChatChatRequest chatRequest) {
         Assert.notNull(chatRequest, REQUEST_BODY_NULL_ERROR);
         Assert.isTrue(!chatRequest.getStream(), "Потоковая обработка должна быть выключена.");
@@ -81,6 +120,12 @@ public class GigaChatApi {
                 .body(GigaChatChatResponse.class);
     }
 
+    /**
+     * Sends a streaming chat request to the GigaChat API.
+     *
+     * @param chatRequest The chat request object.
+     * @return A Flux of responses from the GigaChat API.
+     */
     public Flux<GigaChatChatResponse> streamingChat(GigaChatChatRequest chatRequest) {
         Assert.notNull(chatRequest, REQUEST_BODY_NULL_ERROR);
         Assert.isTrue(chatRequest.getStream(), "Потоковая обработка должна быть включена.");
@@ -102,6 +147,12 @@ public class GigaChatApi {
                 });
     }
 
+    /**
+     * Sends an embedding request to the GigaChat API.
+     *
+     * @param embeddingsRequest The embedding request object.
+     * @return The response from the GigaChat API.
+     */
     public GigaChatEmbeddingResponse embed(GigaChatEmbeddingRequest embeddingsRequest) {
         Assert.notNull(embeddingsRequest, REQUEST_BODY_NULL_ERROR);
 
@@ -114,6 +165,9 @@ public class GigaChatApi {
                 .body(GigaChatEmbeddingResponse.class);
     }
 
+    /**
+     * Custom ResponseErrorHandler for the GigaChat API.
+     */
     private static class GigaChataResponseErrorHandler implements ResponseErrorHandler {
 
         @Override
@@ -122,7 +176,7 @@ public class GigaChatApi {
         }
 
         @Override
-        public void handleError(ClientHttpResponse response) throws IOException {
+        public void handleError(URI url, HttpMethod method, ClientHttpResponse response) throws IOException {
             if (response.getStatusCode().isError()) {
                 int statusCode = response.getStatusCode().value();
                 String statusText = response.getStatusText();
@@ -133,6 +187,9 @@ public class GigaChatApi {
         }
     }
 
+    /**
+     * Supplier class for managing API keys.
+     */
     public static class ApiKeySupplier implements Supplier<String> {
         private static final long tokenUpdateInterval = TimeUnit.of(ChronoUnit.MINUTES).toMillis(1);
         private final Scope scope;
@@ -142,6 +199,14 @@ public class GigaChatApi {
         private final ResponseErrorHandler responseErrorHandler;
         private final  Consumer<HttpHeaders> oauthHeaders;
 
+        /**
+         * Constructs a new ApiKeySupplier instance.
+         *
+         * @param scope    The OAuth scope.
+         * @param clientId The client ID for authentication.
+         * @param secret   The client secret for authentication.
+         * @param restClient The builder for RestClient.
+         */
         public ApiKeySupplier(Scope scope, String clientId, String secret, RestClient.Builder restClient) {
             this.scope = scope;
             this.responseErrorHandler = new GigaChataResponseErrorHandler();
@@ -175,6 +240,9 @@ public class GigaChatApi {
         }
     }
 
+    /**
+     * Enum representing different OAuth scopes for GigaChat.
+     */
     public enum Scope {
         GIGACHAT_API_PERS,
         GIGACHAT_API_B2B,
