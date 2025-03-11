@@ -45,7 +45,7 @@
 </dependency>
 ```
 
-### Spring Configuration
+### Spring configuration
 
 ```java
 import io.micrometer.observation.ObservationRegistry;
@@ -62,13 +62,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@EnableConfigurationProperties(GigaChatConfiguration.class)
+@ConfigurationProperties(prefix = "spring.ai.gigachat.init")
 public class GigaChatConfiguration {
-    private @Value("${config.authUrl}") String authUrl;
-    private @Value("${config.chatUrl}") String chatUrl;
-    private @Value("${config.clientId}") String clientId;
-    private @Value("${config.clientSecret}") String clientSecret;
-    private @Value("${config.model}") String model;
-    private @Value("${config.scope}") GigaChatApi.Scope scope;
+    private String authUrl;
+    private String chatUrl;
+    private String clientId;
+    private String clientSecret;
+    private String model;
+    private GigaChatApi.Scope scope;
 
     public @Bean GigaChatChatOptions chatOptions() {
         return GigaChatChatOptions.builder().model(model).build();
@@ -90,7 +92,46 @@ public class GigaChatConfiguration {
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(new InMemoryChatMemory()).build())
                 .build();
     }
+
+    public void setAuthUrl(String authUrl) {
+        this.authUrl = authUrl;
+    }
+
+    public void setChatUrl(String chatUrl) {
+        this.chatUrl = chatUrl;
+    }
+
+    public void setClientId(String clientId) {
+        this.clientId = clientId;
+    }
+
+    public void setClientSecret(String clientSecret) {
+        this.clientSecret = clientSecret;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
+
+    public void setScope(GigaChatApi.Scope scope) {
+        this.scope = scope;
+    }
 } 
+```
+
+### application.yml
+
+```yaml
+spring:
+  ai:
+    gigachat:
+      init:
+        auth-url: https://ngw.devices.sberbank.ru:9443
+        chat-url: https://gigachat.devices.sberbank.ru
+        client-id: "[client id here]"
+        client-secret: "[client secret here]"
+        model: GigaChat
+        scope: GIGACHAT_API_PERS
 ```
 
 ### Rest service
